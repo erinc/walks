@@ -39,7 +39,7 @@ Static, zero-backend viewer for GPX walks exported from Apple Health.
 - Full-map rendering, no network calls beyond the bundled tiles.
 - Search filters by date.
 
-## Mapbox token
+## Mapbox token (optional)
 
 `dist/index.html` references a Mapbox token (`MAPBOX_ACCESS_TOKEN`). Replace it with your own if needed. If the constant is left blank, the viewer automatically falls back to CARTO/OSM tiles and tracks your system dark/light preference.
 
