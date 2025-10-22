@@ -1,3 +1,5 @@
+![screenshot.jpg]
+
 # GPX Walk Explorer
 
 Static, zero-backend viewer for GPX walks exported from Apple Health.
