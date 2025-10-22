@@ -1,4 +1,5 @@
-![screenshot.jpg]
+![Walks visualized](screenshot.jpg)
+
 
 # GPX Walk Explorer
 
