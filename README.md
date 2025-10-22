@@ -8,7 +8,7 @@ Static, zero-backend viewer for GPX walks exported from Apple Health.
 ## How to run
 
 1. Export your Apple Health data. After unzipping `export.zip`, you will find a `workout-routes/` directory containing all GPX files.
-2. Copy that directory into this project (or point the generator to it with `--source`). The generator defaults to `apple-routes/`, so either rename the folder or pass the flag explicitly.
+2. Copy that directory into this project (or point the generator to it with `--source`). The generator defaults to `workout-routes/`, so either rename the folder or pass the flag explicitly.
 3. From the project root, build the static assets:
 
    ```bash
