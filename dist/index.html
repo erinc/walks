@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>GPX Walk Explorer</title>
+    <link
+        rel="stylesheet"
+        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
+    <style>
+        :root {
+            color-scheme: dark;
+            --sidebar-width: 220px;
+            --accent: #2563eb;
+            --accent-soft: rgba(37, 99, 235, 0.2);
+            --bg: #0f172a;
+            --bg-panel: #111c32;
+            --border: rgba(148, 163, 184, 0.15);
+            --text: #e2e8f0;
+            --text-muted: #94a3b8;
+            font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+        }
+
+        a {
+            color: var(--accent);
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: minmax(var(--sidebar-width), 260px) 1fr;
+            min-height: 100vh;
+        }
+
+        aside {
+            background: var(--bg-panel);
+            border-right: 1px solid var(--border);
+            padding: 1.25rem 1rem 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            position: sticky;
+            top: 0;
+            max-height: 100vh;
+            overflow-y: auto;
+        }
+
+        main {
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            display: flex;
+        }
+
+        .search {
+            width: 100%;
+            padding: 0.6rem 0.75rem;
+            border-radius: 0.75rem;
+            border: 1px solid var(--border);
+            background: rgba(15, 23, 42, 0.6);
+            color: var(--text);
+            font-size: 0.95rem;
+            outline: none;
+        }
+
+        .search:focus {
+            border-color: rgba(37, 99, 235, 0.6);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+        }
+
+        .route-list {
+            overflow-y: auto;
+            flex: 1;
+            padding-right: 0.25rem;
+        }
+
+        .route-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 0.75rem;
+            background: rgba(15, 23, 42, 0.65);
+            border: 1px solid rgba(148, 163, 184, 0.12);
+            border-radius: 0.9rem;
+            padding: 0.7rem 0.8rem;
+            margin-bottom: 0.5rem;
+            cursor: pointer;
+            transition: border-color 0.2s ease, transform 0.2s ease;
+            width: 100%;
+        }
+
+        .route-item:hover {
+            border-color: rgba(148, 163, 184, 0.35);
+            transform: translateY(-1px);
+        }
+
+        .route-item.active {
+            border-color: rgba(37, 99, 235, 0.65);
+            background: rgba(37, 99, 235, 0.08);
+        }
+
+        .route-label {
+            flex: 1;
+            text-align: left;
+            font-weight: 600;
+            letter-spacing: 0.01em;
+        }
+
+        .route-meta {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            background: rgba(148, 163, 184, 0.15);
+            border-radius: 999px;
+            padding: 0.25rem 0.55rem;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        #map-container {
+            flex: 1;
+            position: relative;
+        }
+
+        #map {
+            position: absolute;
+            inset: 0;
+        }
+
+        #map,
+        .leaflet-container {
+            background: #050b1b;
+        }
+
+        .status {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 1.5rem;
+            right: 1.5rem;
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid rgba(37, 99, 235, 0.4);
+            border-radius: 0.9rem;
+            padding: 0.75rem 1rem;
+            color: var(--text);
+            box-shadow: 0 20px 35px rgba(15, 23, 42, 0.35);
+            font-size: 0.9rem;
+            max-width: 320px;
+            z-index: 1500;
+        }
+
+        @media (max-width: 960px) {
+            .layout {
+                display: block;
+            }
+            aside {
+                border-right: none;
+                border-bottom: 1px solid var(--border);
+                position: static;
+                max-height: none;
+            }
+            main {
+                position: relative;
+                height: auto;
+            }
+            #map-container {
+                position: relative;
+                height: 60vh;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="layout">
+        <aside>
+            <div>
+                <input id="search" class="search" type="search" placeholder="Filter by date or time..." />
+            </div>
+            <div class="status" id="summary"></div>
+            <div id="route-list" class="route-list"></div>
+        </aside>
+        <main>
+            <div id="map-container">
+                <div id="map"></div>
+            </div>
+        </main>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Styling for every GPX polyline when not selected.
+        const DEFAULT_STYLE = {
+            color: "#2563eb",
+            opacity: 0.78,
+            weight: 2.6,
+            lineCap: "round",
+            lineJoin: "round",
+        };
+
+        // Styling for the actively selected route.
+        const FOCUSED_STYLE = {
+            color: "#ef4444",
+            opacity: 1,
+            weight: 5.5,
+            lineCap: "round",
+            lineJoin: "round",
+        };
+
+        // Bootstrap the viewer once the page and Leaflet assets are ready.
+        (async function init() {
+            try {
+                // Fetch metadata and geometry in parallel for a snappy load.
+                const [manifestRaw, geojson] = await Promise.all([
+                    fetch("routes_manifest.json").then((res) => {
+                        if (!res.ok) throw new Error("Failed to load routes_manifest.json");
+                        return res.json();
+                    }),
+                    fetch("routes.geojson").then((res) => {
+                        if (!res.ok) throw new Error("Failed to load routes.geojson");
+                        return res.json();
+                    }),
+                ]);
+
+                // Normalise manifest entries and sort newest → oldest.
+                const manifest = manifestRaw
+                    .map((entry) => ({
+                        ...entry,
+                        parsedDate: entry.start_time ? new Date(entry.start_time) : null,
+                    }))
+                    .sort((a, b) => {
+                        const da = a.parsedDate?.getTime() ?? 0;
+                        const db = b.parsedDate?.getTime() ?? 0;
+                        return db - da;
+                    });
+
+                if (!manifest.length) {
+                    throw new Error("No routes available in manifest.");
+                }
+
+                // If you'd like to use Mapbox, place your access token here. 
+                // If it's empty, the viewer will fall back to OpenStreetMap tiles.
+                const MAPBOX_ACCESS_TOKEN = "";                
+                const MAPBOX_STYLE = "mapbox/dark-v11";
+
+                const map = L.map("map");
+
+                if (MAPBOX_ACCESS_TOKEN) {
+                    L.tileLayer(
+                        `https://api.mapbox.com/styles/v1/${MAPBOX_STYLE}/tiles/{z}/{x}/{y}?access_token=${MAPBOX_ACCESS_TOKEN}`,
+                        {
+                            maxZoom: 20,
+                            tileSize: 512,
+                            zoomOffset: -1,
+                            attribution: "Mapbox | OpenStreetMap",
+                        }
+                    ).addTo(map);
+                } else {
+                    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+                        maxZoom: 19,
+                        attribution:
+                            '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+                    }).addTo(map);
+                }
+
+                // Map container is sticky; keep Leaflet aware of its size.
+                window.addEventListener("resize", () => map.invalidateSize());
+                setTimeout(() => map.invalidateSize(), 60);
+
+                // Draw every route immediately and bucket layers by filename.
+                const layer = new L.GeoJSON(geojson, {
+                    style: () => DEFAULT_STYLE,
+                    onEachFeature: (_, featureLayer) => {
+                        featureLayer.options.interactive = false;
+                    },
+                }).addTo(map);
+
+                const featureLayersByFilename = new Map();
+                layer.eachLayer((featureLayer) => {
+                    const { filename } = featureLayer.feature.properties;
+                    if (!featureLayersByFilename.has(filename)) {
+                        featureLayersByFilename.set(filename, []);
+                    }
+                    featureLayersByFilename.get(filename).push(featureLayer);
+                });
+
+                const globalBounds = layer.getBounds();
+                if (globalBounds.isValid()) {
+                    map.invalidateSize();
+                    map.fitBounds(globalBounds, { padding: [60, 60] });
+                } else {
+                    map.setView([0, 0], 2);
+                }
+
+                const searchInput = document.getElementById("search");
+                const listContainer = document.getElementById("route-list");
+                const summary = document.getElementById("summary");
+                let focusedFilename = null;
+
+                // Helper to restyle all polylines belonging to a route.
+                function setStyleFor(filename, style) {
+                    const layers = featureLayersByFilename.get(filename) || [];
+                    for (const featureLayer of layers) {
+                        featureLayer.setStyle(style);
+                        if (style === FOCUSED_STYLE && featureLayer.bringToFront) {
+                            featureLayer.bringToFront();
+                        }
+                    }
+                }
+
+                // Highlight a route and zoom to its bounding box.
+                function focusRoute(entry) {
+                    if (!featureLayersByFilename.has(entry.filename)) {
+                        toast(`Geometry for ${entry.label} is missing.`);
+                        return;
+                    }
+
+                    if (focusedFilename && focusedFilename !== entry.filename) {
+                        setStyleFor(focusedFilename, DEFAULT_STYLE);
+                    }
+
+                    focusedFilename = entry.filename;
+                    setStyleFor(entry.filename, FOCUSED_STYLE);
+
+                    const [[south, west, north, east]] = [[entry.bounds[0], entry.bounds[1], entry.bounds[2], entry.bounds[3]]];
+                    const bounds = L.latLngBounds(
+                        [south, west],
+                        [north, east]
+                    );
+                    if (bounds.isValid()) {
+                        map.invalidateSize();
+                        map.fitBounds(bounds, { padding: [45, 45] });
+                    }
+                }
+
+                // Render a fresh copy of the sidebar list (with active styles).
+                function renderList(entries) {
+                    listContainer.innerHTML = "";
+                    if (!entries.length) {
+                        const empty = document.createElement("div");
+                        empty.textContent = "No routes match your search.";
+                        listContainer.appendChild(empty);
+                        return;
+                    }
+
+                    for (const entry of entries) {
+                        const item = document.createElement("button");
+                        item.type = "button";
+                        item.className = "route-item";
+                        if (entry.filename === focusedFilename) {
+                            item.classList.add("active");
+                        }
+
+                        const label = document.createElement("span");
+                        label.className = "route-label";
+                        const labelDate = entry.parsedDate
+                            ? entry.parsedDate.toISOString().slice(0, 10)
+                            : entry.label.split(" ")[0];
+                        label.textContent = labelDate;
+
+                        const pointsBadge = document.createElement("span");
+                        pointsBadge.className = "route-meta";
+                        pointsBadge.textContent = `${entry.point_count} pts`;
+
+                        item.append(label, pointsBadge);
+                        item.addEventListener("click", () => {
+                            focusRoute(entry);
+                            renderList(filteredRoutes());
+                        });
+
+                        listContainer.appendChild(item);
+                    }
+                }
+
+                // Simple search over labels and ISO date strings.
+                function filteredRoutes() {
+                    const query = searchInput.value.trim().toLowerCase();
+                    if (!query) return manifest;
+                    return manifest.filter((entry) => {
+                        if (entry.label.toLowerCase().includes(query)) {
+                            return true;
+                        }
+                        if (entry.parsedDate) {
+                            const isoDate = entry.parsedDate.toISOString().slice(0, 10);
+                            return isoDate.includes(query);
+                        }
+                        return false;
+                    });
+                }
+
+                // Small toast helper for unexpected issues (e.g. missing geometry).
+                function toast(message) {
+                    const el = document.createElement("div");
+                    el.className = "toast";
+                    el.textContent = message;
+                    document.body.appendChild(el);
+                    setTimeout(() => {
+                        el.style.opacity = "0";
+                        setTimeout(() => el.remove(), 200);
+                    }, 2500);
+                }
+
+                summary.textContent = `${manifest.length} routes · ${manifest
+                    .reduce((sum, entry) => sum + entry.point_count, 0)
+                    .toLocaleString()} points`;
+
+                searchInput.addEventListener("input", () => {
+                    renderList(filteredRoutes());
+                });
+
+                focusRoute(manifest[0]);
+                renderList(manifest);
+            } catch (error) {
+                console.error(error);
+                const message =
+                    "Unable to initialise the viewer. Ensure routes.geojson and routes_manifest.json are present.";
+                const fallback = document.createElement("div");
+                fallback.className = "toast";
+                fallback.textContent = message;
+                document.body.appendChild(fallback);
+            }
+        })();
+    </script>
+</body>
+</html>

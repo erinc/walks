@@ -1,0 +1,11 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+wheels/
+*.egg-info
+.DS_Store
+.venv
+workout-routes/
+*.geojson
+*.json
