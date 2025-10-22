@@ -9,10 +9,10 @@ Static, zero-backend viewer for GPX walks exported from Apple Health.
 3. From the project root, build the static assets:
 
    ```bash
-   # example using the default apple-routes directory
+   # example using the default workout-routes directory
    python generate_routes.py
 
-   # or, if you kept the original name
+   # or, you can specify the source directory for routes
    python generate_routes.py --source workout-routes
    ```
 
