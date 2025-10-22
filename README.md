@@ -30,7 +30,7 @@ Static, zero-backend viewer for GPX walks exported from Apple Health.
    python -m http.server --directory dist 8000
    ```
 
-5. Open http://127.0.0.1:8000/ in a browser. The map renders all routes using Mapbox (if a token is set) or falls back to OpenStreetMap tiles.
+5. Open http://127.0.0.1:8000/ in a browser. 
 
 ## Features
 
@@ -41,7 +41,7 @@ Static, zero-backend viewer for GPX walks exported from Apple Health.
 
 ## Mapbox token
 
-`dist/index.html` references a Mapbox token (`MAPBOX_ACCESS_TOKEN`). Replace it with your own if needed. If the constant is left blank, the viewer automatically falls back to OpenStreetMap tiles.
+`dist/index.html` references a Mapbox token (`MAPBOX_ACCESS_TOKEN`). Replace it with your own if needed. If the constant is left blank, the viewer automatically falls back to CARTO/OSM tiles and tracks your system dark/light preference.
 
 ## Regenerating
 
