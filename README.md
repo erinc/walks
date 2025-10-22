@@ -37,7 +37,7 @@ Static, zero-backend viewer for GPX walks exported from Apple Health.
 - Newest walk selected automatically, highlighted in red.
 - Sidebar sorted newest → oldest; each entry shows the ISO date and point count.
 - Full-map rendering, no network calls beyond the bundled tiles.
-- Search filters by filename or ISO date.
+- Search filters by date.
 
 ## Mapbox token
 
